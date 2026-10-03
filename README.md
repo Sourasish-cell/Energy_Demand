@@ -152,7 +152,7 @@ pipeline on the real data and reported in the paper.
 
 ---
 
-## Known limitations (stated up front)
+## Known limitations
 
 - **Building features are postcode-level proxies**, not per-building records from a
   building-performance database (e.g. DOE BPD). They encode location and consumption behaviour,
