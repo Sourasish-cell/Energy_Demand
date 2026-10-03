@@ -1,0 +1,99 @@
+# ──────────────────────────────────────────────────────────────
+# Paper 1 — Multimodal Spatiotemporal Transformer
+# Default configuration
+# ──────────────────────────────────────────────────────────────
+
+data:
+  # Ausgrid Solar Home 2010-2013; download from
+  # https://www.ausgrid.com.au/Industry/Our-Research/Data-to-share/Solar-home-electricity-data
+  raw_dir: "data/raw"
+  processed_dir: "data/processed"
+
+  # Temporal split (chronological — NO random shuffle)
+  train_end: "2012-06-30"   # 2010-07-01 to 2012-06-30 → ~2 years train
+  test_start: "2012-07-01"  # 2012-07-01 to 2013-06-30 → 1 year test
+
+  # Resample half-hourly (30T) Ausgrid data to hourly
+  resample_freq: "1h"
+
+  # Rolling-window inputs: 168 h = 1 week lookback
+  lookback_hours: 168
+  # Forecasting horizons (hours ahead)
+  horizons: [1, 6, 24, 168]
+
+  # Graph: connect postcodes within this km radius
+  graph_radius_km: 30.0
+  # Minimum cosine similarity between TRAIN-period demand profiles to add an edge
+  graph_profile_sim_threshold: 0.7
+  # Number of neighbours per node in the local star subgraph (top-K by weight)
+  max_neighbors: 8
+
+model:
+  # Building encoder (MLP over tabular attributes)
+  building_dim: 16          # number of building/postcode features
+  building_hidden: [64, 64]
+  building_out: 64
+
+  # Weather encoder (MLP over current-window weather)
+  weather_dim: 9            # see WEATHER_COLS in dataset.py
+  weather_hidden: [64]
+  weather_out: 64
+
+  # Temporal encoder (PatchTST-style)
+  temporal_features: 19     # demand + gen + 9 weather + 8 calendar
+  patch_len: 24             # each patch = 24 h
+  patch_stride: 12          # 50% overlap
+  d_model: 128
+  n_heads: 4
+  n_layers: 3
+  dropout: 0.1
+
+  # Spatial GAT
+  gat_in: 128               # = d_model from temporal encoder
+  gat_hidden: 128
+  gat_out: 128
+  gat_heads: 4
+  gat_dropout: 0.1
+
+  # Cross-attention fusion
+  fusion_d_model: 128
+  fusion_n_heads: 4
+  fusion_dropout: 0.1
+
+  # Shared projection after fusion
+  shared_dim: 256
+
+  # Multi-task heads: one per horizon per target
+  # targets: [demand, generation]
+  # horizons: 4  (1h, 6h, 24h, 168h)
+
+training:
+  batch_size: 32
+  epochs: 50
+  lr: 3.0e-4
+  weight_decay: 1.0e-5
+  grad_clip: 1.0
+
+  # Multi-task loss weights (demand_weight + gen_weight = 1.0)
+  demand_weight: 0.6
+  gen_weight: 0.4
+
+  # Early stopping
+  patience: 10
+  min_delta: 1.0e-4
+
+  # LR scheduler: cosine annealing
+  scheduler: "cosine"
+  t_max: 50
+
+  seed: 42
+
+# Smoke-test overrides for CPU / quick sanity check
+smoke_test:
+  n_customers: 20       # subsample customers
+  lookback_hours: 48
+  epochs: 2
+  batch_size: 8
+  d_model: 32
+  n_layers: 1
+  max_neighbors: 4
